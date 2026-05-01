@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 TOKEN = os.getenv("TOKEN")
-BASE_API = "https://discord.com/api/v9"
+BASE_API = "https://discord.com/api/v10"
 GATEWAY_URL = "wss://gateway.discord.gg/?v=9&encoding=json"
 
 state = {
