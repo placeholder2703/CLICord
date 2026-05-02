@@ -25,17 +25,23 @@ def heartbeat_loop():
 			"d": sequence
 		})
 
-def set_status(status):
-	send_ws(ws, {
-		"op": 3,
-		"d": {
-			"since": None,
-			"activities": [],
-			"status": status,
-			"afk": status == "idle"
-		}
-	})
-
+def set_status(status, text=None):
+    activity = None
+    if text:
+        activity = {
+            "type": 4,
+            "name": "Custom Status",
+            "state": text
+        }
+    send_ws(ws, {
+        "op": 3,
+        "d": {
+            "since": None,
+            "activities": [activity] if activity else [],
+            "status": status,
+            "afk": status == "idle"
+        }
+    })
 
 def on_open(socket):
 	print("Gateway connected.")

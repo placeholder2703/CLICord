@@ -45,6 +45,12 @@ def get_channel(channel_id):
 		headers=headers
 		).json()
 
+def get_message(channel_id, depth=10):
+	return requests.get(
+		f"{BASE_API}/channels/{channel_id}/messages?limit={depth}",
+		headers=headers
+		).json()
+
 def send_message(channel_id, content):
 	return requests.post(
 		f"{BASE_API}/channels/{channel_id}/messages",
