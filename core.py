@@ -16,4 +16,9 @@ state = {
 }
 
 def send_ws(ws, data):
-    ws.send(json.dumps(data))
+    if ws is None or stop_event.is_set():
+        return
+    try:
+        ws.send(json.dumps(data))
+    except Exception as e:
+        print("Send failed:", e)

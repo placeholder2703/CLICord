@@ -3,27 +3,18 @@ from websocket import WebSocketApp
 import json
 import threading
 import time
+import random
 
-def identify():
-	send_ws(ws, {
-		"op": 2,
-		"d": {
-			"token": TOKEN,
-			"properties": {
-				"os": "Windows",
-				"browser": "CLICord",
-				"device": ""
-			}
-		}
-	})
+stop_event = threading.Event()
+hb_thread = None
 
-def heartbeat_loop():
-	while True:
-		time.sleep(heartbeat_interval / 1000)
-		send_ws(ws, {
-			"op": 1,
-			"d": sequence
-		})
+heartbeat_interval = 0
+sequence = None
+session_id = None
+resume_url = None
+should_resume = False
+last_ack = True
+missed_ack = 0
 
 def set_status(status, text=None):
     activity = None
@@ -43,47 +34,157 @@ def set_status(status, text=None):
         }
     })
 
-def on_open(socket):
-	print("Gateway connected.")
+def heartbeat_loop(local_ws):
+	global last_ack, missed_ack
+	interval = heartbeat_interval / 1000
+	while not stop_event.wait(interval):
+		if not last_ack:
+			print("Missed heartbeat ACK")
+			missed_ack += 1
+			if missed_ack >= 3:
+				print(f"Server failed to acknowledge {missed_ack} heartbeats, reconnecting")
+				local_ws.close()
+				return
+		last_ack = False
+		print("Heartbeat")
+		send_ws(local_ws, {
+			"op": 1,
+			"d": sequence
+		})
 
+def identify(ws):
+	send_ws(ws, {
+		"op": 2,
+		"d": {
+			"token": TOKEN,
+			"properties": {
+				"os": "windows",
+				"browser": "websocket-client",
+				"device": "python"
+			}
+		}
+	})
 
-def on_message(socket, message):
-	global heartbeat_interval
-	global sequence
+def on_open(ws):
+	print("Gateway connected")
+
+def resume(ws):
+	print("Attempting resumption")
+	send_ws(ws, {
+		"op": 6,
+		"d": {
+			"token": TOKEN,
+			"session_id": session_id,
+			"seq": sequence
+		}
+	})
+
+def on_message(ws, message):
+	global heartbeat_interval, sequence, hb_thread, session_id, resume_url, should_resume, last_ack
 	packet = json.loads(message)
 	if packet.get("s") is not None:
 		sequence = packet["s"]
 	op = packet.get("op")
 	data = packet.get("d")
 	event = packet.get("t")
-	if op == 10:
-		heartbeat_interval = data["heartbeat_interval"]
-		threading.Thread(
-			target=heartbeat_loop,
-			daemon=True
-		).start()
-		identify()
+
 	if op == 0:
 		if event == "MESSAGE_CREATE":
 			if data["channel_id"] == state["selected_channel"]:
 				print(f"{data["author"]["global_name"]} ({data["author"]["username"]}): {data["content"]}")
+
+	if op == 1:
+		print("Server requested heartbeat")
+		send_ws(ws, {
+			"op": 1,
+			"d": sequence
+		})
+
+	if op == 7:
+		print("Server requested reconnection")
+		stop_event.set()
+		should_resume = True
+		ws.close()
+
+	if op == 9:
+		print("Received OP 9")
+		stop_event.set()
+		if data:
+			print("Session invalidated but resumable(somehow), resuming")
+			should_resume = True
+		else:
+			print("Session invalidated, reauthenticating")
+			should_resume = False
+			sequence = None
+			session_id = None
+		ws.close()
+
+	if op == 10:
+		print("Server greeted")
+		heartbeat_interval = data["heartbeat_interval"]
+		print(f"Heartbeat Interval: {heartbeat_interval}ms")
+		last_ack = True
+		if hb_thread is not None:
+			stop_event.set()
+			time.sleep(0.5)
+			stop_event.clear()
+		hb_thread = threading.Thread(
+		target=heartbeat_loop,
+			args=(ws,),
+			daemon=True
+		)
+		hb_thread.start()
+		if should_resume and session_id and sequence is not None:
+			resume(ws)
+		else:
+			identify(ws)
+		
+	if op == 11:
+		last_ack = True
+		missed_ack = 0
+		print("Heartbeat acknowledged")
+
 	if event == "READY":
 		print("Logged in as", data["user"]["username"])
-def on_close(socket, code, reason):
-	print("Gateway close ", code, reason)
+		resume_url = data["resume_gateway_url"]
+		session_id = data["session_id"]
+		should_resume = False
 
-def on_error(socket, error):
-	print("Gateway error: ", error)
+	if event == "RESUMED":
+		print("Successfully resumed")
 
-def start_gateway():
-	global ws
+def on_close(ws, code, reason):
+	global hb_thread, should_resume, session_id
+	print("Gateway close", code, reason)
+	stop_event.set()
+	if code in (4007, 4009):
+		print("Session invalid, re-identify")
+		session_id = None
+		sequence = None
+		should_resume = False
+	elif code not in (4004, 4010, 4011, 4003, 4005):
+		print("Disconnected, resuming")
+		should_resume = True
+	if hb_thread is not None:
+		hb_thread.join()
+	hb_thread = None
 
+def on_error(ws, error):
+	print("Gateway error:", error)
+
+ws_url = GATEWAY_URL
+while True:
+	stop_event.clear()
 	ws = WebSocketApp(
-		GATEWAY_URL,
+		ws_url,
 		on_open=on_open,
 		on_message=on_message,
-		on_close=on_close,
-		on_error=on_error
+		on_error=on_error,
+		on_close=on_close
 	)
-
-	ws.run_forever()
+	ws.run_forever(ping_interval=0)
+	if should_resume and resume_url:
+		ws_url = f"{resume_url}/?v=9&encoding=json"
+	else:
+		ws_url = GATEWAY_URL
+	time.sleep(2 + random.random())
