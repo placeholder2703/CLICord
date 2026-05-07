@@ -1,0 +1,22 @@
+[
+	{
+		"type": 4,
+		"name": "Custom Status",
+		"state": "im not actually online"
+	},
+	{
+		"name": "Minecraft",
+		"type": 0,
+		"application_id": 356875570916753438,
+		"timestamps": {
+			"start": 1,
+			"end": null
+		},
+		"details": "Forge 1.16.5 with 86 mods",
+		"state": null,
+		"party": {},
+		"assets": {},
+		"flags": 48
+	}
+]
+

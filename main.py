@@ -12,17 +12,17 @@ print("Making this an very lightweight client while still being functional.")
 
 channel_id = None
 threading.Thread(
-    target=start_gateway,
-    daemon=True
+	target=start_gateway,
+	daemon=True
 ).start()
 
 while True:
-    text = input()
-    if not text.startswith("."):
-        if state["selected_channel"]:
-            send_message(state["selected_channel"], text)
-        else:
-            print("Set channel ID first, get it from .dms and set with .changechannel")
-    else:
-        out = handle(text)
-        if out: print(out)
+	text = input()
+	if not text.startswith("."):
+		if state["selected_channel"]:
+			send_message(state["selected_channel"], text)
+		else:
+			print("Set channel ID first, get it from .dms and set with .changechannel")
+	else:
+		out = handle(text)
+		if out: print(out)

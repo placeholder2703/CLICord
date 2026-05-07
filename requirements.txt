@@ -1,3 +1,2 @@
-python-dotenv==1.2.2
 Requests==2.33.1
 websocket_client==1.9.0

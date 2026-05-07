@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 TOKEN = os.getenv("TOKEN")
-BASE_API = "https://discord.com/api/v10"
+BASE_API = "https://discord.com/api/v9"
 GATEWAY_URL = "wss://gateway.discord.gg/?v=9&encoding=json"
 
 state = {
@@ -15,10 +15,3 @@ state = {
     "selected_channel": None
 }
 
-def send_ws(ws, data):
-    if ws is None or stop_event.is_set():
-        return
-    try:
-        ws.send(json.dumps(data))
-    except Exception as e:
-        print("Send failed:", e)
