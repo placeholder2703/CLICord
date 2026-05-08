@@ -1,10 +1,7 @@
 import json
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
-
-TOKEN = os.getenv("TOKEN")
+TOKEN = None
 BASE_API = "https://discord.com/api/v9"
 GATEWAY_URL = "wss://gateway.discord.gg/?v=9&encoding=json"
 

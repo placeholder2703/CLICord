@@ -1,4 +1,5 @@
-from core import state, TOKEN, GATEWAY_URL
+from core import state, GATEWAY_URL
+import core
 from websocket import WebSocketApp
 import json
 import threading
@@ -55,7 +56,7 @@ def identify(ws):
 	send_ws(ws, {
 		"op": 2,
 		"d": {
-			"token": TOKEN,
+			"token": core.TOKEN,
 			"properties": {
 				"os": "windows",
 				"browser": "websocket-client",
@@ -72,7 +73,7 @@ def resume(ws):
 	send_ws(ws, {
 		"op": 6,
 		"d": {
-			"token": TOKEN,
+			"token": core.TOKEN,
 			"session_id": session_id,
 			"seq": sequence
 		}
@@ -105,6 +106,7 @@ def on_message(ws, message):
 		ws.close()
 
 	if op == 9:
+		time.sleep(random.uniform(1, 5))
 		stop_event.set()
 		if data:
 			print("Opcode 9 but d: True, resuming")

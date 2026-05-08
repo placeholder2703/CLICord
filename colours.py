@@ -1,11 +1,31 @@
-class C:
-	RESET = "\033[0m"
-	BOLD = "\033[1m"
-
+class colours:
+	BLACK = "\033[30m"
 	RED = "\033[31m"
 	GREEN = "\033[32m"
 	YELLOW = "\033[33m"
 	BLUE = "\033[34m"
 	MAGENTA = "\033[35m"
 	CYAN = "\033[36m"
+	WHITE = "\033[37m"
+	
 	GRAY = "\033[90m"
+	BRIGHT_RED = "\033[91m"
+	BRIGHT_GREEN = "\033[92m"
+	BRIGHT_YELLOW = "\033[93m"
+	BRIGHT_BLUE = "\033[94m"
+	BRIGHT_MAGENTA = "\033[95m"
+	BRIGHT_CYAN = "\033[96m"
+	BRIGHT_WHITE = "\033[97m"
+class D:
+	RESET = "\033[0m"
+	BOLD = "\033[1m"
+	DIM = "\033[2m"
+	ITALIC = "\033[3m"
+	UNDERLINE = "\033[4m"
+
+	# edit this part
+	user_id = colours.BLUE
+	global_name = colours.CYAN
+	bot_tag = colours.WHITE
+	username = colours.GRAY
+	discriminator = colours.GRAY

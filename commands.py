@@ -1,7 +1,7 @@
 from gateway import set_status
 from rest import *
 from core import state
-from colours import C
+from colours import D
 import json
 def generate_name(recipient):
 	if recipient.get("user"):
@@ -10,9 +10,9 @@ def generate_name(recipient):
 	else:
 		name = recipient.get("global_name") or recipient["username"]
 		username = recipient["username"]
-	disc = f"#{C.GRAY}{recipient['discriminator']}{C.RESET}" if recipient.get("discriminator") not in (None, "0") else ""
+	disc = f"{D.discriminator}#{recipient['discriminator']}{D.RESET}" if recipient.get("discriminator") not in (None, "0") else ""
 	bot_tag = " [SYSTEM]" if recipient.get("system") else " [BOT]" if recipient.get("bot") else ""
-	return f"{C.CYAN}{name}{C.RESET}{bot_tag} ({C.GRAY}{username}{C.RESET})"
+	return f"{D.global_name}{name}{D.bot_tag}{bot_tag}{D.RESET} ({D.username}{username}{D.RESET}{disc})"
 	
 def handle(text):
 	parts = text.split(" ", 2)
@@ -21,11 +21,10 @@ def handle(text):
 	arg2 = parts[2] if len(parts) > 2 else None
 	if cmd == ".status":
 		if arg1:
-			if arg2 is True:
+			data = None
+			if arg2:
 				with open('data.json', 'r', encoding='utf-8') as f:
 					data = json.load(f)
-			else:
-				data = None
 			set_status(arg1, data)
 		else:
 			return "usage: .status <status> <include_activities?>"
@@ -33,7 +32,7 @@ def handle(text):
 	elif cmd == ".friends":
 		friends = get_friends()
 		for friend in friends:
-			print(f"{C.BLUE}{friend['id']}{C.RESET} {generate_name(friend)}")
+			print(f"{D.user_id}{friend['id']}{D.RESET} {generate_name(friend)}")
 
 	elif cmd == ".dms":
 		dms = get_dms()
@@ -42,13 +41,13 @@ def handle(text):
 			if not recipients:
 				continue
 			if len(recipients) > 1:
-				print(f"{C.BLUE}{dm["id"]}{C.RESET} ({len(recipients) + 1} people including YOU)")
+				print(f"{D.user_id}{dm["id"]}{D.RESET} ({len(recipients) + 1} people including YOU)")
 				for recipient in recipients:
 					print(f"    {generate_name(recipient)}")
-				print(f"    and {C.BOLD}YOU{C.RESET}")
+				print(f"    and {D.BOLD}YOU{D.RESET}")
 			else:
 				recipient = recipients[0]
-				print(f"{C.BLUE}{dm["id"]}{C.RESET} {generate_name(recipient)}")
+				print(f"{D.user_id}{dm["id"]}{D.RESET} {generate_name(recipient)}")
 
 	elif cmd == ".changechannel":
 		if arg1 and arg1.strip():
@@ -74,7 +73,7 @@ def handle(text):
 	
 	elif cmd == ".info":
 		info = get_info()
-		print(f"{C.BLUE}{info["id"]}{C.RESET} {generate_name(info)}")
+		print(f"{D.user_id}{info["id"]}{D.RESET} {generate_name(info)}")
 
 	elif cmd == ".send":
 		if not state["selected_channel"]:
