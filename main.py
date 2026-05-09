@@ -1,7 +1,3 @@
-import threading
-from gateway import start_gateway
-from rest import send_message
-from commands import handle
 import core
 import sys
 import json
@@ -9,6 +5,7 @@ import json
 sys.stdout.reconfigure(encoding="utf-8")
 if sys.version_info < (3, 12):
     print("Because of the double quotes in f-strings AND my laziness, CLICord requires Python 3.12+")
+    print(f"And it appears that you're using {sys.version_info} to run CLICord, update it")
     sys.exit(1)
 
 print("This is CLICord(pronounced cli(ng)-cord, C-L-I Cord or whatever), a Python CLI Discord client.")
@@ -28,6 +25,12 @@ keys = list(accounts.keys())
 for index, key in enumerate(keys):
     print(f"[{index}] {key}")
 core.TOKEN = accounts[keys[int(input("> "))]]
+
+import threading
+from gateway import start_gateway
+from rest import send_message
+from commands import handle
+
 
 channel_id = None
 threading.Thread(

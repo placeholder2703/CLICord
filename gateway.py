@@ -1,5 +1,4 @@
-from core import state, GATEWAY_URL
-import core
+from core import state, TOKEN, GATEWAY_URL
 from websocket import WebSocketApp
 import json
 import threading
@@ -56,7 +55,7 @@ def identify(ws):
 	send_ws(ws, {
 		"op": 2,
 		"d": {
-			"token": core.TOKEN,
+			"token": TOKEN,
 			"properties": {
 				"os": "windows",
 				"browser": "websocket-client",
@@ -73,7 +72,7 @@ def resume(ws):
 	send_ws(ws, {
 		"op": 6,
 		"d": {
-			"token": core.TOKEN,
+			"token": TOKEN,
 			"session_id": session_id,
 			"seq": sequence
 		}
@@ -177,8 +176,8 @@ def on_close(ws, code, reason):
 		4000, # Unknown error
 		4001, # Unknown opcode
 		4002, # Decode error
-		4008,  # Rate limited
-		None
+		4008, # Rate limited
+		None  # i don't know man😭
 	):
 		print("Disconnected, resuming")
 		should_resume = True

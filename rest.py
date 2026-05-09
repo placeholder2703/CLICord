@@ -1,8 +1,9 @@
 import requests
-from core import TOKEN, BASE_API
+from core import BASE_API
+import core
 
 headers = {
-	"Authorization": TOKEN,
+	"Authorization": core.TOKEN,
 	"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) discord/1.0.9235 Chrome/138.0.7204.251 Electron/37.6.0 Safari/537.36"
 }
 
