@@ -9,6 +9,7 @@ Instead of launching an entire Chromium-powered apartment complex just to send m
 > This client does not attempt to imitate the official Discord client. It does not send many of the
 > extra events and telemetry normally sent by Discord clients(typing indicators, metadata,
 > science/tracking events, etc.).
+>
 > "I am not responsible for any loss caused by using "self-bots" or CLICord"
 
 ## Features
@@ -73,12 +74,6 @@ Example:
 	"accountN":"token"
 }
 ```
-
-
-> [!CAUTION]
-> Never share your Discord token with anyone. It grants full access to your
-> account and sharing it can compromise your security. If your token is leaked
-> change your Discord password immediately to regenerate a new token.
 
 ## 4. Run
 
@@ -172,6 +167,7 @@ Displays basic account information including ID, user/display name.
 
 > [!NOTE]
 > Unicode output is enabled automatically on Windows.
+>
 > This whole thing was partially vibe-coded
 
 ---

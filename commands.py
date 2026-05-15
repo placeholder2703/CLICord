@@ -3,6 +3,8 @@ from rest import *
 from core import state
 from colours import D
 import json
+import re
+
 def generate_name(recipient):
 	if recipient.get("user"):
 		name = recipient["user"].get("global_name") or recipient["user"]["username"]
@@ -50,7 +52,7 @@ def handle(text):
 				print(f"{D.user_id}{dm["id"]}{D.RESET} {generate_name(recipient)}")
 
 	elif cmd == ".changechannel":
-		if arg1 and arg1.strip():
+		if arg1 and re.fullmatch(r"[0-9]+", text):
 			channel = get_channel(arg1)
 			if channel["type"] == 0:
 				print(f"You're now chatting in #{channel["name"]}")
