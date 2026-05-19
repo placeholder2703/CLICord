@@ -4,6 +4,7 @@ from core import state
 from colours import D
 import json
 import re
+import asyncio
 
 def generate_name(recipient):
 	if recipient.get("user"):
@@ -16,7 +17,7 @@ def generate_name(recipient):
 	bot_tag = " [SYSTEM]" if recipient.get("system") else " [BOT]" if recipient.get("bot") else ""
 	return f"{D.global_name}{name}{D.bot_tag}{bot_tag}{D.RESET} ({D.username}{username}{D.RESET}{disc})"
 	
-def handle(text):
+async def handle(text):
 	parts = text.split(" ", 2)
 	cmd = parts[0]
 	arg1 = parts[1] if len(parts) > 1 else None
@@ -25,19 +26,22 @@ def handle(text):
 		if arg1:
 			data = None
 			if arg2:
-				with open('data.json', 'r', encoding='utf-8') as f:
-					data = json.load(f)
-			set_status(arg1, data)
+				try:
+					with open('activities.json', 'r', encoding='utf-8') as f:
+						data = json.load(f)
+				except FileNotFoundError:
+					return "activities.json not found."
+			await set_status(arg1, data)
 		else:
 			return "usage: .status <status> <include_activities?>"
 
 	elif cmd == ".friends":
-		friends = get_friends()
+		friends = await get_friends()
 		for friend in friends:
 			print(f"{D.user_id}{friend['id']}{D.RESET} {generate_name(friend)}")
 
 	elif cmd == ".dms":
-		dms = get_dms()
+		dms = await get_dms()
 		for dm in dms:
 			recipients = dm["recipients"]
 			if not recipients:
@@ -52,8 +56,8 @@ def handle(text):
 				print(f"{D.user_id}{dm["id"]}{D.RESET} {generate_name(recipient)}")
 
 	elif cmd == ".changechannel":
-		if arg1 and re.fullmatch(r"[0-9]+", text):
-			channel = get_channel(arg1)
+		if arg1 and re.fullmatch(r"[0-9]+", arg1):
+			channel = await get_channel(arg1)
 			if channel["type"] == 0:
 				print(f"You're now chatting in #{channel["name"]}")
 			elif channel["type"] == 1:
@@ -74,14 +78,14 @@ def handle(text):
 	# 	print(guilds)
 	
 	elif cmd == ".info":
-		info = get_info()
+		info = await get_info()
 		print(f"{D.user_id}{info["id"]}{D.RESET} {generate_name(info)}")
 
 	elif cmd == ".send":
 		if not state["selected_channel"]:
 			return "Set channel ID first, get it from .dms and set with .changechannel"
 		if arg1:
-			send_message(state["selected_channel"], arg1)
+			await send_message(state["selected_channel"], arg1)
 		else:
 			return "usage: .send <msg>"
 

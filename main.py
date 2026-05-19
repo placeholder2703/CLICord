@@ -1,8 +1,7 @@
-#changes made: indentation
-
 import core
 import sys
 import json
+import asyncio
 
 sys.stdout.reconfigure(encoding="utf-8")
 
@@ -44,25 +43,30 @@ core.TOKEN = accounts[keys[account]]
 
 # Actual startup happens down there
 
-import threading
-from gateway import start_gateway
+from gateway import gateway_loop
 from rest import send_message
 from commands import handle
+from aioconsole import ainput
 
-
-channel_id = None
-threading.Thread(
-	target=start_gateway,
-	daemon=True
-).start()
-
-while True:
-	text = input()
-	if not text.startswith("."):
-		if core.state["selected_channel"]:
-			send_message(core.state["selected_channel"], text)
+async def cli_loop():
+	while True:
+		cmd = await ainput("> ")
+		if not cmd.startswith("."):
+			if core.state["selected_channel"]:
+				await send_message(core.state["selected_channel"], cmd)
+			else:
+				print("Set channel ID first, get it from .dms and set with .changechannel")
 		else:
-			print("Set channel ID first, get it from .dms and set with .changechannel")
-	else:
-		out = handle(text)
-		if out: print(out)
+			out = await handle(cmd)
+		if out:
+			print(out)
+
+async def main():
+	await asyncio.gather(
+		gateway_loop(),
+		cli_loop()
+	)
+try:
+	asyncio.run(main())
+except KeyboardInterrupt:
+	print("stopping")

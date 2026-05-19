@@ -1,12 +1,11 @@
 from core import state, TOKEN, GATEWAY_URL
-from websocket import WebSocketApp
+import websockets
 import json
-import threading
-import time
+import asyncio
 import random
 
-stop_event = threading.Event()
-hb_thread = None
+ws = None
+heartbeat_task = None
 
 heartbeat_interval = 0
 sequence = None
@@ -16,16 +15,15 @@ should_resume = False
 last_ack = True
 missed_ack = 0
 
-def send_ws(ws, data):
-	if ws is None or stop_event.is_set():
+async def send_ws(data):
+	global ws
+	if ws is None:
 		return
-	try:
-		ws.send(json.dumps(data))
-	except Exception as e:
-		print("Send failed:", e)
+	await ws.send(json.dumps(data))
 
-def set_status(status, activities=None):
-	send_ws(ws, {
+async def set_status(status, activities=None):
+	global ws
+	await send_ws({
 		"op": 3,
 		"d": {
 			"since": None,
@@ -35,41 +33,57 @@ def set_status(status, activities=None):
 		}
 	})
 
-def heartbeat_loop(local_ws):
-	global last_ack, missed_ack
+async def heartbeat_loop():
+	global ws, last_ack, missed_ack
 	interval = heartbeat_interval / 1000
-	while not stop_event.wait(interval):
+	while True:
 		if not last_ack:
 			missed_ack += 1
 			if missed_ack >= 3:
 				print(f"Server failed to acknowledge {missed_ack} heartbeats, reconnecting")
-				local_ws.close()
+				await ws.close()
 				return
 		last_ack = False
-		send_ws(local_ws, {
+		await send_ws({
 			"op": 1,
 			"d": sequence
 		})
+		await asyncio.sleep(interval)
 
-def identify(ws):
-	send_ws(ws, {
+async def identify():
+	await send_ws({
 		"op": 2,
 		"d": {
 			"token": TOKEN,
+			"capabilities": 30717,
+			"compress": False,
 			"properties": {
-				"os": "windows",
-				"browser": "websocket-client",
-				"device": "python"
+				"os": "Windows",
+				"browser": "Chrome",
+				"device": "",
+				"system_locale": "en-US",
+				"browser_user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
+				"browser_version": "136.0.0.0",
+				"os_version": "10",
+				"referrer": "",
+				"referring_domain": "",
+				"release_channel": "stable",
+				"client_build_number": 9999,
+				"client_event_source": None
+			},
+			"presence": {
+				"status": "online",
+				"since": 0,
+				"activities": [],
+				"afk": False
 			}
 		}
 	})
 
-def on_open(ws):
-	print("Gateway connected")
-
-def resume(ws):
+async def resume():
+	global ws
 	print("Attempting resumption")
-	send_ws(ws, {
+	await send_ws({
 		"op": 6,
 		"d": {
 			"token": TOKEN,
@@ -78,9 +92,9 @@ def resume(ws):
 		}
 	})
 
-def on_message(ws, message):
-	global heartbeat_interval, sequence, hb_thread, session_id, resume_url, should_resume, last_ack, missed_ack
-	packet = json.loads(message)
+async def handle_packet(packet):
+	global ws, heartbeat_task, heartbeat_interval, last_ack, missed_ack
+	global sequence, session_id, resume_url, should_resume
 	if packet.get("s") is not None:
 		sequence = packet["s"]
 	op = packet.get("op")
@@ -93,20 +107,18 @@ def on_message(ws, message):
 				print(f"{data["author"]["global_name"]} ({data["author"]["username"]}): {data["content"]}")
 
 	if op == 1:
-		send_ws(ws, {
+		await send_ws({
 			"op": 1,
 			"d": sequence
 		})
 
 	if op == 7:
 		print("Server requested reconnection")
-		stop_event.set()
 		should_resume = True
-		ws.close()
+		await ws.close()
 
 	if op == 9:
-		time.sleep(random.uniform(1, 5))
-		stop_event.set()
+		await asyncio.sleep(random.uniform(1, 5))
 		if data:
 			print("Opcode 9 but d: True, resuming")
 			should_resume = True
@@ -115,25 +127,19 @@ def on_message(ws, message):
 			should_resume = False
 			sequence = None
 			session_id = None
-		ws.close()
+		await ws.close()
 
 	if op == 10:
 		heartbeat_interval = data["heartbeat_interval"]
 		last_ack = True
-		if hb_thread is not None:
-			stop_event.set()
-			time.sleep(0.5)
-			stop_event.clear()
-		hb_thread = threading.Thread(
-		target=heartbeat_loop,
-			args=(ws,),
-			daemon=True
-		)
-		hb_thread.start()
-		if should_resume and session_id and sequence is not None:
-			resume(ws)
+		missed_ack = 0
+		if heartbeat_task:
+			heartbeat_task.cancel()
+		heartbeat_task = asyncio.create_task(heartbeat_loop())
+		if (should_resume and session_id and sequence is not None):
+			await resume()
 		else:
-			identify(ws)
+			await identify()
 		
 	if op == 11:
 		last_ack = True
@@ -148,61 +154,49 @@ def on_message(ws, message):
 	if event == "RESUMED":
 		print("Successfully resumed")
 
-def on_close(ws, code, reason):
-	global hb_thread, should_resume, session_id, sequence
-	print("Gateway close ", code, reason)
-	stop_event.set()
-	if code in (
-		4003, # Not authenticated
-		4004, # Authentication failed
-		4005, # Already authenticated
-		4006, # Session no longer valid
-		4007, # Invalid seq
-		4009, # Session timed out
-		4010, # Invalid shard
-		4011, # Sharding required
-		4012, # Invalid API version
-		4013, # Invalid intents
-		4014, # Disallowed intents
-		4015, # Too many sessions
-		4016  # Connection request canceled
-	):
-		print("Session invalidated, re-identifying")
-		session_id = None
-		sequence = None
-		should_resume = False
-	
-	elif should_resume and code in (
-		4000, # Unknown error
-		4001, # Unknown opcode
-		4002, # Decode error
-		4008, # Rate limited
-		None  # i don't know man😭
-	):
-		print("Disconnected, resuming")
-		should_resume = True
-	if hb_thread is not None:
-		hb_thread.join()
-	hb_thread = None
-
-def on_error(ws, error):
-	print("Gateway error: ", error)
-
-def start_gateway():
-	global ws
+async def gateway_loop():
+	global ws, should_resume, session_id, sequence
 	ws_url = GATEWAY_URL
 	while True:
-		stop_event.clear()
-		ws = WebSocketApp(
-			ws_url,
-			on_open=on_open,
-			on_message=on_message,
-			on_error=on_error,
-			on_close=on_close
-		)
-		ws.run_forever(ping_interval=0)
+		try:
+			async with websockets.connect(ws_url, ping_interval=None) as websocket:
+				ws = websocket
+				print("Gateway connected")
+				async for message in ws:
+					packet = json.loads(message)
+					await handle_packet(packet)
+		except websockets.ConnectionClosed as e: # Always closing with 1006 for some reason
+			print("Gateway closed", e.code, e.reason)
+			if e.code in (
+				4003, # Not authenticated
+				4004, # Authentication failed
+				4005, # Already authenticated
+				4006, # Session no longer valid
+				4007, # Invalid seq
+				4009, # Session timed out
+				4010, # Invalid shard
+				4011, # Sharding required
+				4012, # Invalid API version
+				4013, # Invalid intents
+				4014, # Disallowed intents
+				4015, # Too many sessions
+				4016  # Connection request canceled
+			):
+				print("Session invalidated, re-identifying")
+				session_id = None
+				sequence = None
+				should_resume = False
+			else:
+				print("Disconnected, resuming")
+				should_resume = True
+		except Exception as e:
+			print("Gateway error:", e)
+		finally:
+			if heartbeat_task:
+				heartbeat_task.cancel()	
 		if should_resume and resume_url:
-			ws_url = f"{resume_url}/?v=9&encoding=json"
+			ws_url = ( f"{resume_url}" f"/?v=9&encoding=json" )
 		else:
 			ws_url = GATEWAY_URL
-		time.sleep(2 + random.random())
+
+		await asyncio.sleep(2 + random.random())
